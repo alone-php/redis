@@ -1,0 +1,8 @@
+/.idea
+/.vscode
+/vendor
+demo.php
+composer.lock
+text
+debug.php
+TEST_RESULTS.md
