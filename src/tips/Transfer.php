@@ -5,19 +5,21 @@ namespace AlonePhp\Redis\tips;
  * 双帐户转帐
  */
 class Transfer {
-    public int        $code      = 0;      // 状态码
-    public float|int  $amount    = 0;      // 操作额度
-    public string     $outKey    = "";     // 转出key
-    public string     $outField  = "";     // 转出字段
-    public float|int  $outBefore = 0;      // 转出前额度
-    public float|int  $outAfter  = 0;      // 转出后额度
-    public string     $inKey     = "";     // 转入key
-    public string     $inField   = "";     // 转入字段
-    public float|int  $inBefore  = 0;      // 转入前额度
-    public float|int  $inAfter   = 0;      // 转入后额度
-    public float|int  $execute   = 0;      // 执行时间
-    public array|null $error     = null;   // 报错详细
-    public array      $tips      = [
+    use Tips;
+
+    public int          $code      = 0;      // 状态码
+    public float|int    $amount    = 0;      // 操作额度
+    public string       $outKey    = "";     // 转出key
+    public string       $outField  = "";     // 转出字段
+    public float|int    $outBefore = 0;      // 转出前额度
+    public float|int    $outAfter  = 0;      // 转出后额度
+    public string       $inKey     = "";     // 转入key
+    public string       $inField   = "";     // 转入字段
+    public float|int    $inBefore  = 0;      // 转入前额度
+    public float|int    $inAfter   = 0;      // 转入后额度
+    public float|int    $execute   = 0;      // 执行时间
+    public array|null   $error     = null;   // 报错详细
+    public static array $tips      = [
         200 => "成功",
         201 => "转出失败",
         202 => "转出余额不足",
@@ -27,26 +29,12 @@ class Transfer {
         206 => "转入失败 并 回滚成功"
     ];
 
-    public function __construct(array $res) {
-        foreach (array_intersect_key($res, get_object_vars($this)) as $k => $v) {
-            $this->$k = $v;
-        }
-    }
-
     /**
      * 判断是否转帐成功
      * @return bool
      */
     public function isSuccess(): bool {
         return $this->code == 200 && $this->isOut() && $this->isIn();
-    }
-
-    /**
-     * 获取提示信息
-     * @return string
-     */
-    public function getTips(): string {
-        return $this->tips[$this->code] . ($this->code == 204 ? "({$this->error["msg"]})" : "");
     }
 
     /**
