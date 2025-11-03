@@ -10,9 +10,6 @@ namespace AlonePhp\RedisBalance\tips;
  * - 203: 余额不足
  * - 204: 执行超时
  * - 205: 异常错误
- * - 206: 操作失败
- * - 207: 扣款失败
- * - 208: 加款失败 回滚失败
  */
 class Transfer {
     public int        $code       = 0;   // 状态码

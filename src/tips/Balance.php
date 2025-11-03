@@ -10,7 +10,6 @@ namespace AlonePhp\RedisBalance\tips;
  * - 203: 余额不足
  * - 204: 执行超时
  * - 205: 异常错误
- * - 206: 操作失败
  */
 class Balance {
     public int        $code    = 0;    // 状态码

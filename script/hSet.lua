@@ -11,9 +11,9 @@ if force == 0 and ttl > 0 and redis.call("EXISTS", key) == 0 then
     exists = 1
 end
 -- 写入字段
-local res = redis.call("HSET", key, field, value)
+local result = redis.call("HSET", key, field, value)
 -- 设置过期：
 if exists == 1 or force == 1 then
     redis.call("EXPIRE", key, ttl)
 end
-return res
+return result

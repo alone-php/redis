@@ -8,10 +8,12 @@ use Throwable;
 class Lua {
     // Redis
     protected mixed $redis = null;
-    // LUA文件脚本
-    protected static array $lua = [];
+    // LUA脚本代码
+    protected array $script = [];
     // LUA脚本信息
     protected array $sha = [];
+    // LUA脚本信息
+    protected static array $lua = [];
 
     /**
      * 获取原生redis对像
@@ -22,38 +24,47 @@ class Lua {
     }
 
     /**
+     * 设置Lua
+     * @param string|int $type 类型
+     * @param string     $lua  脚本代码
+     * @return $this
+     */
+    public function setLua(string|int $type, string $lua): static {
+        $this->script[$type] = $lua;
+        return $this;
+    }
+
+    /**
      * 获取Lua
-     * @param string      $fileName 文件名
-     * @param string|null $lua      默认lua
+     * @param string $type 类型 或者 文件名
      * @return string
      */
-    protected function getLua(string $fileName, string|null $lua): string {
-        if (empty($lua)) {
-            if (empty(static::$lua[$fileName])) {
-                static::$lua[$fileName] = @file_get_contents(__DIR__ . "/../../files/$fileName.lua");
-            }
-        } else {
-            static::$lua[$fileName] = $lua;
+    public function getLua(string $type): string {
+        if (!empty($this->script[$type] ?? null)) {
+            static::$lua[$type] = $this->script[$type];
+        } elseif (empty(static::$lua[$type] ?? null)) {
+            static::$lua[$type] = @file_get_contents(__DIR__ . "/../../script/$type.lua");
         }
-        return static::$lua[$fileName];
+        return static::$lua[$type];
     }
 
     /**
      * 执行脚本
-     * @param string      $fileName 文件名
-     * @param string|null $lua      默认lua
-     * @param array       $params   参数
-     * @param int         $keyCount
+     * @param string $type   类型 或者 文件名
+     * @param array  $params 参数
+     * @param int    $keyCount
      * @return mixed
      * @throws Throwable
      */
-    protected function execLua(string $fileName, string|null $lua, array $params, int $keyCount): mixed {
-        $script = $this->getLua($fileName, $lua);
-        $this->sha[$fileName] = !empty($sha = $this->sha[$fileName] ?? null) ? $sha : $this->client()->script('load', $script);
+    public function execLua(string $type, array $params, int $keyCount): mixed {
+        $script = $this->getLua($type);
+        if (empty($this->sha[$type] ?? null)) {
+            $this->sha[$type] = $this->client()->script('load', $script);
+        }
         try {
-            return $this->client()->evalSha($this->sha[$fileName], $params, $keyCount);
+            return $this->client()->evalSha($this->sha[$type], $params, $keyCount);
         } catch (Throwable $e) {
-            unset($this->sha[$fileName]);
+            unset($this->sha[$type]);
             return $this->client()->eval($script, $params, $keyCount);
         }
     }
