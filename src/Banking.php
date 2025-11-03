@@ -22,6 +22,13 @@ class Banking extends Lua {
         // 精度倍数
         'decimals' => 1000000
     ];
+    // 提示信息
+    protected array $tips = [
+        200 => "Success",
+        201 => "Balance insufficient",
+        202 => "Execution timeout",
+        203 => "System error"
+    ];
 
     /**
      * @param mixed $redis  array使用自带的redis,也可以使用redis对像
@@ -51,14 +58,13 @@ class Banking extends Lua {
             while (microtime(true) - $startTime < $timeout) {
                 $param = [(string) $key, (string) $field, (int) $balance, $default];
                 $result = $this->execLua('balance', $param, 1);
-                [$code, $msg, $before, $after] = array_pad($result, 4, 0);
+                [$code, $before, $after] = array_pad($result, 3, 0);
                 switch ($code) {
                     case 200:
-                    case 203:
-                    case 206:
+                    case 201:
                         return new Balance([
                             'code'    => $code,
-                            'msg'     => $msg,
+                            'msg'     => $this->tips[$code] ?? '',
                             'amount'  => $amount,
                             'key'     => $key,
                             'field'   => $field,
@@ -66,10 +72,10 @@ class Banking extends Lua {
                             'after'   => $after / $decimals,
                             'execute' => microtime(true) - $startTime
                         ]);
-                    case 201:
+                    case 1:
                         $this->set($key, $field, $call());
                         continue 2;
-                    case 202:
+                    case 4:
                         usleep($wait);
                         continue 2;
                     default:
@@ -78,8 +84,8 @@ class Banking extends Lua {
                 }
             }
             return new Balance([
-                'code'    => 204,
-                'msg'     => 'Execution timeout',
+                'code'    => 202,
+                'msg'     => $this->tips[202] ?? '',
                 'amount'  => $amount,
                 'key'     => $key,
                 'field'   => $field,
@@ -87,8 +93,8 @@ class Banking extends Lua {
             ]);
         } catch (Throwable $e) {
             return new Balance([
-                'code'    => 205,
-                'msg'     => $e->getMessage(),
+                'code'    => 203,
+                'msg'     => ($this->tips[203] ?? '') . "(" . $e->getMessage() . ")",
                 'amount'  => $amount,
                 'key'     => $key,
                 'field'   => $field,
@@ -126,15 +132,13 @@ class Banking extends Lua {
             while (microtime(true) - $startTime < $timeout) {
                 $param = [(string) $outKey, (string) $inKey, (string) $outField, (string) $inField, (int) $balance, $default];
                 $result = $this->execLua('transfer', $param, 2);
-                [$code, $msg, $outBefore, $inBefore, $outAfter, $inAfter] = array_pad($result, 6, 0);
+                [$code, $outBefore, $inBefore, $outAfter, $inAfter] = array_pad($result, 5, 0);
                 switch ($code) {
                     case 200:
-                    case 203:
-                    case 207:
-                    case 208:
+                    case 201:
                         return new Transfer([
                             'code'      => $code,
-                            'msg'       => $msg,
+                            'msg'       => $this->tips[$code] ?? '',
                             'amount'    => $amount,
                             'outKey'    => $outKey,
                             'outField'  => $outField,
@@ -146,14 +150,13 @@ class Banking extends Lua {
                             'inAfter'   => $inAfter / $decimals,
                             'execute'   => (microtime(true) - $startTime),
                         ]);
-                    case 201:
-                        if ($msg === 'out') {
-                            $this->set($outKey, $outField, $outCall());
-                        } else {
-                            $this->set($inKey, $inField, $inCall());
-                        }
+                    case 1:
+                        $this->set($outKey, $outField, $outCall());
                         continue 2;
-                    case 202:
+                    case 2:
+                        $this->set($inKey, $inField, $inCall());
+                        continue 2;
+                    case 4:
                         usleep($wait);
                         continue 2;
                     default:
@@ -162,8 +165,8 @@ class Banking extends Lua {
                 }
             }
             return new Transfer([
-                'code'     => 204,
-                'msg'      => 'Execution timeout',
+                'code'     => 202,
+                'msg'      => $this->tips[202] ?? '',
                 'amount'   => $amount,
                 'outKey'   => $outKey,
                 'outField' => $outField,
@@ -173,8 +176,8 @@ class Banking extends Lua {
             ]);
         } catch (Throwable $e) {
             return new Transfer([
-                'code'     => 205,
-                'msg'      => $e->getMessage(),
+                'code'     => 203,
+                'msg'      => ($this->tips[203] ?? '') . "(" . $e->getMessage() . ")",
                 'amount'   => $amount,
                 'outKey'   => $outKey,
                 'outField' => $outField,

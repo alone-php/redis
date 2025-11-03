@@ -16,6 +16,15 @@ class Facade extends Lua {
     }
 
     /**
+     * 金融类
+     * @param array $config 设置
+     * @return Banking
+     */
+    public function banking(array $config = []): Banking {
+        return new Banking($this->redis, $config);
+    }
+
+    /**
      * 选择数据库
      * @param int $db
      * @return $this
@@ -23,15 +32,6 @@ class Facade extends Lua {
     public function select(int $db = 0): static {
         $this->client()->select($db);
         return $this;
-    }
-
-    /**
-     * 金融类
-     * @param array $config 设置
-     * @return Banking
-     */
-    public function banking(array $config = []): Banking {
-        return new Banking($this->redis, $config);
     }
 
     /**
