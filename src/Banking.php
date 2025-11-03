@@ -25,9 +25,12 @@ class Banking extends Lua {
     // 提示信息
     protected array $tips = [
         200 => "Success",
-        201 => "Balance insufficient",
-        202 => "Execution timeout",
-        203 => "System error"
+        201 => "Failed",
+        202 => "Balance insufficient",
+        203 => "Execution timeout",
+        204 => "System error",
+        205 => "Transfer failed and rollback failed",
+        206 => "Transfer failed and rollback success"
     ];
 
     /**
@@ -62,6 +65,7 @@ class Banking extends Lua {
                 switch ($code) {
                     case 200:
                     case 201:
+                    case 202:
                         return new Balance([
                             'code'    => $code,
                             'msg'     => $this->tips[$code] ?? '',
@@ -84,8 +88,8 @@ class Banking extends Lua {
                 }
             }
             return new Balance([
-                'code'    => 202,
-                'msg'     => $this->tips[202] ?? '',
+                'code'    => 203,
+                'msg'     => $this->tips[203] ?? '',
                 'amount'  => $amount,
                 'key'     => $key,
                 'field'   => $field,
@@ -93,8 +97,8 @@ class Banking extends Lua {
             ]);
         } catch (Throwable $e) {
             return new Balance([
-                'code'    => 203,
-                'msg'     => ($this->tips[203] ?? '') . "(" . $e->getMessage() . ")",
+                'code'    => 204,
+                'msg'     => ($this->tips[204] ?? '') . "(" . $e->getMessage() . ")",
                 'amount'  => $amount,
                 'key'     => $key,
                 'field'   => $field,
@@ -136,6 +140,9 @@ class Banking extends Lua {
                 switch ($code) {
                     case 200:
                     case 201:
+                    case 202:
+                    case 205:
+                    case 206:
                         return new Transfer([
                             'code'      => $code,
                             'msg'       => $this->tips[$code] ?? '',
@@ -165,8 +172,8 @@ class Banking extends Lua {
                 }
             }
             return new Transfer([
-                'code'     => 202,
-                'msg'      => $this->tips[202] ?? '',
+                'code'     => 203,
+                'msg'      => $this->tips[203] ?? '',
                 'amount'   => $amount,
                 'outKey'   => $outKey,
                 'outField' => $outField,
@@ -176,8 +183,8 @@ class Banking extends Lua {
             ]);
         } catch (Throwable $e) {
             return new Transfer([
-                'code'     => 203,
-                'msg'      => ($this->tips[203] ?? '') . "(" . $e->getMessage() . ")",
+                'code'     => 204,
+                'msg'      => ($this->tips[204] ?? '') . "(" . $e->getMessage() . ")",
                 'amount'   => $amount,
                 'outKey'   => $outKey,
                 'outField' => $outField,
