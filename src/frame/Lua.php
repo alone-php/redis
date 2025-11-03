@@ -1,6 +1,6 @@
 <?php
 
-namespace AlonePhp\Redis;
+namespace AlonePhp\Redis\frame;
 
 use Redis;
 use Throwable;

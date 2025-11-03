@@ -3,6 +3,7 @@
 namespace AlonePhp\Redis;
 
 use Throwable;
+use AlonePhp\Redis\frame\Lua;
 use AlonePhp\RedisBalance\tips\Balance;
 use AlonePhp\RedisBalance\tips\Transfer;
 

@@ -1,9 +1,8 @@
 <?php
 
-
 namespace AlonePhp\Redis;
 
-use Redis;
+use AlonePhp\Redis\frame\Lua;
 
 /**
  * Redis客户端
