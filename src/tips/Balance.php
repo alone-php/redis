@@ -33,6 +33,6 @@ class Balance {
      * @return bool
      */
     public function is(): bool {
-        return $this->code == 200 && $this->before + $this->amount == $this->after;
+        return $this->code == 200 && ($this->before + $this->amount == $this->after);
     }
 }
