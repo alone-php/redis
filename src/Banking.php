@@ -47,11 +47,11 @@ class Banking extends Lua {
         $default = $this->config('default', -1);
         $wait = $this->config('wait', 5000);
         try {
-            $digital = $amount * $decimals;
+            $balance = $amount * $decimals;
             while (microtime(true) - $startTime < $timeout) {
-                $param = [(string) $key, (string) $field, (int) $digital, $default];
+                $param = [(string) $key, (string) $field, (int) $balance, $default];
                 $result = $this->execLua('balance', $param, 1);
-                [$code, $msg, $before, $balance] = array_pad($result, 4, 0);
+                [$code, $msg, $before, $after] = array_pad($result, 4, 0);
                 switch ($code) {
                     case 200:
                     case 203:
@@ -63,7 +63,7 @@ class Banking extends Lua {
                             'key'     => $key,
                             'field'   => $field,
                             'before'  => $before / $decimals,
-                            'balance' => $balance / $decimals,
+                            'after'   => $after / $decimals,
                             'execute' => microtime(true) - $startTime
                         ]);
                     case 201:
@@ -122,29 +122,29 @@ class Banking extends Lua {
         $wait = $this->config('wait', 5000);
         try {
             $amount = abs($amount);
-            $digital = $amount * $decimals;
+            $balance = $amount * $decimals;
             while (microtime(true) - $startTime < $timeout) {
-                $param = [(string) $outKey, (string) $inKey, (string) $outField, (string) $inField, (int) $digital, $default];
+                $param = [(string) $outKey, (string) $inKey, (string) $outField, (string) $inField, (int) $balance, $default];
                 $result = $this->execLua('transfer', $param, 2);
-                [$code, $msg, $outBefore, $inBefore, $outBalance, $inBalance] = array_pad($result, 6, 0);
+                [$code, $msg, $outBefore, $inBefore, $outAfter, $inAfter] = array_pad($result, 6, 0);
                 switch ($code) {
                     case 200:
                     case 203:
                     case 207:
                     case 208:
                         return new Transfer([
-                            'code'       => $code,
-                            'msg'        => $msg,
-                            'amount'     => $amount,
-                            'outKey'     => $outKey,
-                            'outField'   => $outField,
-                            'outBefore'  => $outBefore / $decimals,
-                            'outBalance' => $outBalance / $decimals,
-                            'inKey'      => $inKey,
-                            'inField'    => $inField,
-                            'inBefore'   => $inBefore / $decimals,
-                            'inBalance'  => $inBalance / $decimals,
-                            'execute'    => (microtime(true) - $startTime),
+                            'code'      => $code,
+                            'msg'       => $msg,
+                            'amount'    => $amount,
+                            'outKey'    => $outKey,
+                            'outField'  => $outField,
+                            'outBefore' => $outBefore / $decimals,
+                            'outAfter'  => $outAfter / $decimals,
+                            'inKey'     => $inKey,
+                            'inField'   => $inField,
+                            'inBefore'  => $inBefore / $decimals,
+                            'inAfter'   => $inAfter / $decimals,
+                            'execute'   => (microtime(true) - $startTime),
                         ]);
                     case 201:
                         if ($msg === 'out') {

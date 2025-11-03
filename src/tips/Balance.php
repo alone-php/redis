@@ -18,7 +18,7 @@ class Balance {
     public string     $key     = "";   // 操作key
     public string     $field   = "";   // 操作key
     public float|int  $before  = 0;    // 操作前余额
-    public float|int  $balance = 0;    // 操作后余额
+    public float|int  $after   = 0;    // 操作后余额
     public float|int  $execute = 0;    // 执行时间
     public array|null $error   = null; // 报错详细
 
@@ -33,6 +33,6 @@ class Balance {
      * @return bool
      */
     public function is(): bool {
-        return $this->code == 200 && $this->before + $this->amount == $this->balance;
+        return $this->code == 200 && $this->before + $this->amount == $this->after;
     }
 }
