@@ -53,9 +53,10 @@ class Client {
     public function client(bool $retry = false): ?Redis {
         if ($retry === true || !$this->isConnected()) {
             $retry_hits = (int) $this->config('retry_hits', 0);
+            $retry_hits = $retry_hits > 0 ? $retry_hits : 1;
             for ($i = 0; $i < $retry_hits; $i++) {
                 try {
-                    $this->connect();
+                    $this->close()->connect();
                     if ($this->isConnected()) {
                         break;
                     }

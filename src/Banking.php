@@ -10,8 +10,7 @@ use AlonePhp\RedisBalance\tips\Transfer;
 /**
  * 金融余额操作
  */
-class Banking {
-    use Lua;
+class Banking extends Lua {
 
     // Redis
     protected mixed $redis = null;
@@ -43,17 +42,6 @@ class Banking {
         $this->redis = is_array($redis) ? (new Client($redis)) : $redis;
         $this->config = array_merge($this->config, $config);
         (!empty($error = $this->config['error'])) && error_reporting($error);
-    }
-
-    /**
-     * 获取原生redis对像
-     * @return Redis
-     */
-    public function getRedis(): Redis {
-        if ($this->redis instanceof Redis) {
-            return $this->redis;
-        }
-        return $this->redis->client();
     }
 
     /**

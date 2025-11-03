@@ -8,10 +8,7 @@ use Redis;
 /**
  * Redis客户端
  */
-class Facade {
-    // Redis
-    protected mixed $redis = null;
-
+class Facade extends Lua {
     /**
      * @param mixed $redis array使用自带的redis,也可以使用redis对像
      */
@@ -20,14 +17,12 @@ class Facade {
     }
 
     /**
-     * 获取原生redis对像
-     * @return Redis
+     * 金融类
+     * @param array $config 设置
+     * @return Banking
      */
-    public function getRedis(): Redis {
-        if ($this->redis instanceof Redis) {
-            return $this->redis;
-        }
-        return $this->redis->client();
+    public function banking(array $config = []): Banking {
+        return new Banking($this->redis, $config);
     }
 
     /**
@@ -36,20 +31,7 @@ class Facade {
      * @return $this
      */
     public function select(int $db = 0): static {
-        $this->getRedis()->select($db);
+        $this->client()->select($db);
         return $this;
-    }
-
-    /**
-     * 设置 缓存
-     * @param int|string $key
-     * @param int|string $name
-     * @param mixed      $val
-     * @param int        $time
-     * @return mixed
-     */
-    public function hSet(int|string $key, int|string $name, mixed $val, int $time = 0): mixed {
-        $res = $this->getRedis()->hSet((string) $key, (string) $name, $val);
-        return $res;
     }
 }
