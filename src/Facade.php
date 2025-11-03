@@ -17,6 +17,16 @@ class Facade extends Lua {
     }
 
     /**
+     * 选择数据库
+     * @param int $db
+     * @return $this
+     */
+    public function select(int $db = 0): static {
+        $this->client()->select($db);
+        return $this;
+    }
+
+    /**
      * 金融类
      * @param array $config 设置
      * @return Banking
@@ -26,12 +36,17 @@ class Facade extends Lua {
     }
 
     /**
-     * 选择数据库
-     * @param int $db
-     * @return $this
+     * @param string|int $key
+     * @param string|int $field 字段
+     * @param string|int $value 内容
+     * @param int        $ttl   有效时间
+     * @param bool       $force 存在时是否强制设置时间
+     * @return bool
      */
-    public function select(int $db = 0): static {
-        $this->client()->select($db);
-        return $this;
+    public function hSet(string|int $key, string|int $field, string|int $value, int $ttl = 0, bool $force = false): bool {
+        return (bool) ($ttl > 0
+            ? $this->execLua("hSet", [(string) $key, (string) $field, (string) $value, $ttl, $force ? 1 : 0], 1)
+            : $this->client()->hSet((string) $key, (string) $field, (string) $value)
+        );
     }
 }

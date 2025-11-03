@@ -54,7 +54,6 @@ class Lua {
      * @param array  $params 参数
      * @param int    $keyCount
      * @return mixed
-     * @throws Throwable
      */
     public function execLua(string $type, array $params, int $keyCount): mixed {
         $script = $this->getLua($type);

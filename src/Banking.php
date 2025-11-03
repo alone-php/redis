@@ -48,7 +48,7 @@ class Banking extends Lua {
         try {
             $digital = $amount * $decimals;
             while (microtime(true) - $startTime < $timeout) {
-                $param = [$key, $field, (int) $digital, $default];
+                $param = [(string) $key, (string) $field, (int) $digital, $default];
                 $result = $this->execLua('balance', $param, 1);
                 [$code, $msg, $before, $balance] = array_pad($result, 4, 0);
                 switch ($code) {
@@ -123,7 +123,7 @@ class Banking extends Lua {
             $amount = abs($amount);
             $digital = $amount * $decimals;
             while (microtime(true) - $startTime < $timeout) {
-                $param = [$outKey, $inKey, $outField, $inField, (int) $digital, $default];
+                $param = [(string) $outKey, (string) $inKey, (string) $outField, (string) $inField, (int) $digital, $default];
                 $result = $this->execLua('transfer', $param, 2);
                 [$code, $msg, $outBefore, $inBefore, $outBalance, $inBalance] = array_pad($result, 6, 0);
                 switch ($code) {
