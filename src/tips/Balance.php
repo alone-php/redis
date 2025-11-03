@@ -31,7 +31,7 @@ class Balance {
      * 判断操作余额是否成功
      * @return bool
      */
-    public function is(): bool {
+    public function isSuccess(): bool {
         return $this->code == 200 && ($this->before + $this->amount == $this->after);
     }
 }
