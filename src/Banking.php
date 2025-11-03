@@ -34,4 +34,35 @@ class Banking {
         // tran方法脚本内容
         'transferLua' => null
     ];
+
+    /**
+     * @param mixed $redis  array使用自带的redis,也可以使用redis对像
+     * @param array $config 程序配置
+     */
+    public function __construct(mixed $redis = [], array $config = []) {
+        $this->redis = is_array($redis) ? (new Client($redis)) : $redis;
+        $this->config = array_merge($this->config, $config);
+        (!empty($error = $this->config['error'])) && error_reporting($error);
+    }
+
+    /**
+     * 获取原生redis对像
+     * @return Redis
+     */
+    public function getRedis(): Redis {
+        if ($this->redis instanceof Redis) {
+            return $this->redis;
+        }
+        return $this->redis->client();
+    }
+
+    /**
+     * 获取配置
+     * @param string|int|null $key
+     * @param mixed           $default
+     * @return mixed
+     */
+    public function config(string|int|null $key = null, mixed $default = null): mixed {
+        return isset($key) ? ($this->config[$key] ?? $default) : $this->config;
+    }
 }
