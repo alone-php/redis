@@ -37,7 +37,7 @@ class Facade {
     }
 
     /**
-     * @param string|int  $type     类型
+     * @param string|int  $type     类型或者文件名
      * @param array       $params   参数
      * @param int         $keyCount key数量
      * @param string|null $lua      自定脚本内容
