@@ -16,7 +16,6 @@ class Transfer {
     public string    $inField   = "";  // 转入字段
     public float|int $inBefore  = 0;   // 转入前额度
     public float|int $inAfter   = 0;   // 转入后额度
-    public float|int $execute   = 0;   // 执行时间
 
     public static array $tips = [
         200 => "成功",

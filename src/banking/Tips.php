@@ -3,8 +3,9 @@
 namespace AlonePhp\Redis\banking;
 
 trait Tips {
-    public int        $code  = 0;      // 状态码
-    public array|null $error = null;   // 报错详细
+    public int        $code    = 0;      // 状态码
+    public float|int  $execute = 0;      // 执行时间(秒)
+    public array|null $error   = null;   // 报错详细
 
     /**
      * 获取提示信息
