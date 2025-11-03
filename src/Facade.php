@@ -37,6 +37,17 @@ class Facade {
     }
 
     /**
+     * @param string|int  $type     类型
+     * @param array       $params   参数
+     * @param int         $keyCount key数量
+     * @param string|null $lua      自定脚本内容
+     * @return mixed
+     */
+    public function eval(string|int $type, array $params, int $keyCount, string|null $lua = null): mixed {
+        return $this->setLua($type, $lua)->execLua($type, $params, $keyCount);
+    }
+
+    /**
      * 入队列
      * @param string|int       $key
      * @param array|string|int $value
