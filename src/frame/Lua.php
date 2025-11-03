@@ -5,7 +5,7 @@ namespace AlonePhp\Redis\frame;
 use Redis;
 use Throwable;
 
-class Lua {
+trait Lua {
     // Redis
     protected mixed $redis = null;
     // LUA脚本代码

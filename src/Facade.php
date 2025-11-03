@@ -7,7 +7,9 @@ use AlonePhp\Redis\frame\Lua;
 /**
  * Redis客户端
  */
-class Facade extends Lua {
+class Facade {
+    use Lua;
+
     /**
      * @param mixed $redis array使用自带的redis,也可以使用redis对像
      */

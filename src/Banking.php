@@ -4,13 +4,15 @@ namespace AlonePhp\Redis;
 
 use Throwable;
 use AlonePhp\Redis\frame\Lua;
-use AlonePhp\Redis\tips\Balance;
-use AlonePhp\Redis\tips\Transfer;
+use AlonePhp\Redis\banking\Balance;
+use AlonePhp\Redis\banking\Transfer;
 
 /**
  * 金融余额操作
  */
-class Banking extends Lua {
+class Banking {
+    use Lua;
+
     // 程序配置
     protected array $config = [
         // redis默认值
