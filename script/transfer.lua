@@ -19,8 +19,6 @@ end
 if outResult == false then
     return { 1 }
 end
-
-
 -- 检查转入账户是否存在
 if redis.call("HSETNX", inKey, inField, initValue) == 1 then
     return { 2 }
