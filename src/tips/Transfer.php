@@ -45,7 +45,7 @@ class Transfer {
      * @return bool
      */
     public function isOut(): bool {
-        return $this->outBefore - $this->outBalance == $this->amount;
+        return $this->outBefore - $this->amount == $this->outBalance;
     }
 
     /**
@@ -53,6 +53,6 @@ class Transfer {
      * @return bool
      */
     public function isIn(): bool {
-        return $this->inBalance - $this->inBefore == $this->amount;
+        return $this->inBefore + $this->amount == $this->inBalance;
     }
 }
