@@ -235,10 +235,10 @@ class Banking {
 
     /**
      * 删除全部指定前缀:key
-     * @param string|null $keyPrefix key前缀, null清空全部redis
+     * @param string|int|null $keyPrefix key前缀, null清空全部redis
      * @return int
      */
-    public function delete(string|null $keyPrefix): int {
+    public function delete(string|int|null $keyPrefix): int {
         if ($keyPrefix === null) {
             return $this->client()->flushDB() === true ? 1 : 0;
         }
