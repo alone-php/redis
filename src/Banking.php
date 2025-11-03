@@ -22,16 +22,6 @@ class Banking extends Lua {
         // 精度倍数
         'decimals' => 1000000
     ];
-    // 提示信息
-    protected array $tips = [
-        200 => "Success",
-        201 => "Failed",
-        202 => "Balance insufficient",
-        203 => "Execution timeout",
-        204 => "System error",
-        205 => "Transfer failed and rollback failed",
-        206 => "Transfer failed and rollback success"
-    ];
 
     /**
      * @param mixed $redis  array使用自带的redis,也可以使用redis对像
@@ -68,7 +58,6 @@ class Banking extends Lua {
                     case 202:
                         return new Balance([
                             'code'    => $code,
-                            'msg'     => $this->tips[$code] ?? '',
                             'amount'  => $amount,
                             'key'     => $key,
                             'field'   => $field,
@@ -89,7 +78,6 @@ class Banking extends Lua {
             }
             return new Balance([
                 'code'    => 203,
-                'msg'     => $this->tips[203] ?? '',
                 'amount'  => $amount,
                 'key'     => $key,
                 'field'   => $field,
@@ -98,7 +86,6 @@ class Banking extends Lua {
         } catch (Throwable $e) {
             return new Balance([
                 'code'    => 204,
-                'msg'     => ($this->tips[204] ?? '') . "(" . $e->getMessage() . ")",
                 'amount'  => $amount,
                 'key'     => $key,
                 'field'   => $field,
@@ -145,7 +132,6 @@ class Banking extends Lua {
                     case 206:
                         return new Transfer([
                             'code'      => $code,
-                            'msg'       => $this->tips[$code] ?? '',
                             'amount'    => $amount,
                             'outKey'    => $outKey,
                             'outField'  => $outField,
@@ -173,7 +159,6 @@ class Banking extends Lua {
             }
             return new Transfer([
                 'code'     => 203,
-                'msg'      => $this->tips[203] ?? '',
                 'amount'   => $amount,
                 'outKey'   => $outKey,
                 'outField' => $outField,
@@ -184,7 +169,6 @@ class Banking extends Lua {
         } catch (Throwable $e) {
             return new Transfer([
                 'code'     => 204,
-                'msg'      => ($this->tips[204] ?? '') . "(" . $e->getMessage() . ")",
                 'amount'   => $amount,
                 'outKey'   => $outKey,
                 'outField' => $outField,
@@ -265,6 +249,46 @@ class Banking extends Lua {
             }
         }
         return $count;
+    }
+
+    /**
+     * 设置默认值
+     * @param int $default
+     * @return $this
+     */
+    public function default(int $default): static {
+        $this->config["default"] = -abs($default);
+        return $this;
+    }
+
+    /**
+     * 每次等待时间(微秒)
+     * @param int $wait
+     * @return $this
+     */
+    public function wait(int $wait): static {
+        $this->config["wait"] = abs($wait);
+        return $this;
+    }
+
+    /**
+     * 超时时间(秒)
+     * @param int $timeout
+     * @return $this
+     */
+    public function timeout(int $timeout): static {
+        $this->config["timeout"] = abs($timeout);
+        return $this;
+    }
+
+    /**
+     * 精度倍数
+     * @param int $decimals
+     * @return $this
+     */
+    public function decimals(int $decimals): static {
+        $this->config["decimals"] = abs($decimals);
+        return $this;
     }
 
     /**
