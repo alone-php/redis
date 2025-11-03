@@ -7,12 +7,12 @@ namespace AlonePhp\Redis\banking;
 class Balance {
     use Tips;
 
-    public float|int $amount  = 0;          // 操作额度
-    public string    $key     = "";         // 操作key
-    public string    $field   = "";         // 操作字段
-    public float|int $before  = 0;          // 操作前余额
-    public float|int $after   = 0;          // 操作后余额
-    public float|int $execute = 0;          // 执行时间
+    public float|int $amount  = 0;  // 操作额度
+    public string    $key     = ""; // 操作key
+    public string    $field   = ""; // 操作字段
+    public float|int $before  = 0;  // 操作前余额
+    public float|int $after   = 0;  // 操作后余额
+    public float|int $execute = 0;  // 执行时间
 
     public static array $tips = [
         200 => "成功",

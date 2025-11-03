@@ -34,5 +34,6 @@ trait Tips {
         foreach (array_intersect_key($res, get_object_vars($this)) as $k => $v) {
             $this->$k = $v;
         }
+        $this->execute = (float) number_format($this->execute, 6, '.', '');
     }
 }
