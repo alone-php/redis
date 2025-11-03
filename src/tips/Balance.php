@@ -1,6 +1,6 @@
 <?php
 
-namespace AlonePhp\RedisBalance\tips;
+namespace AlonePhp\Redis\tips;
 /**
  * - 单帐户余额操作
  * - 状态码说明

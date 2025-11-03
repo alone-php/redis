@@ -1,6 +1,6 @@
 <?php
 
-namespace AlonePhp\RedisBalance\tips;
+namespace AlonePhp\Redis\tips;
 /**
  * - 双帐户转帐
  * - 状态码说明
