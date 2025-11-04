@@ -1,4 +1,15 @@
 <?php
+
+use AlonePhp\Redis\Facade;
+
+/**
+ * @param mixed $configOrRedis
+ * @return Facade
+ */
+function alone_redis_client(mixed $configOrRedis = []): Facade {
+    return new Facade($configOrRedis);
+}
+
 /**
  * 根据编号计算分表（按区间和每区表数）
  * @param int $id     编号
