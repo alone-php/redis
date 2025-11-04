@@ -7,6 +7,11 @@ use Throwable;
 
 /**
  * Redis客户端
+ * @mixin Redis
+ * @method bool hSet(string|int $key, string|int $field, array|string|int $value, int $ttl = 0, bool $force = false)
+ * @method bool zAdd(string|int $key, array|string|int $value, int $score = 0, int $ttl = 0, bool $force = false)
+ * @method mixed zGet(string|int $key, int $score = 0)
+ * @method int delete(string|int|null $prefix)
  */
 class Facade {
     // LUA脚本信息
@@ -24,41 +29,19 @@ class Facade {
     }
 
     /**
-     * 获取原生redis对像
+     * 金融类
+     * @return Banking
+     */
+    public function banking(): Banking {
+        return new Banking($this->redis);
+    }
+
+    /**
+     * 原生redis使用
      * @return Redis
      */
     public function client(): Redis {
         return ($this->redis instanceof Redis) ? $this->redis : $this->redis->client();
-    }
-
-    /**
-     * 选择数据库
-     * @param int $db
-     * @return $this
-     */
-    public function select(int $db = 0): static {
-        $this->client()->select($db);
-        return $this;
-    }
-
-    /**
-     * 删除全部指定前缀:key
-     * @param string|int|null $keyPrefix key前缀, null清空全部redis
-     * @return int
-     */
-    public function delete(string|int|null $keyPrefix): int {
-        if ($keyPrefix === null) {
-            return $this->client()->flushDB() === true ? 1 : 0;
-        }
-        $count = 0;
-        $items = $this->client()->keys(trim($keyPrefix, ":") . ":*");
-        if (!empty($items)) {
-            foreach ($items as $item) {
-                ++$count;
-                $this->client()->del($item);
-            }
-        }
-        return $count;
     }
 
     /**
@@ -77,5 +60,68 @@ class Facade {
             unset($this->sha[$type]);
             return $this->client()->eval(static::$lua[$type], $params, $keyCount);
         }
+    }
+
+    /**
+     * 选择数据库
+     * @param int $db
+     * @return $this
+     */
+    public function select(int $db = 0): static {
+        $this->client()->select($db);
+        return $this;
+    }
+
+    /**
+     * @param string $name
+     * @param array  $parameter
+     * @return mixed
+     */
+    public function __call(string $name, array $parameter): mixed {
+        switch ($name) {
+            case "hSet":
+                [$key, $field, $value, $ttl, $force] = array_pad($parameter, 5, 0);
+                $params = [
+                    (string) $key,
+                    (string) $field,
+                    (string) (is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE) : $value),
+                    (int) $ttl,
+                    (int) $force
+                ];
+                return (bool) $this->eval($name, $params, 1);
+            case "zAdd":
+                [$key, $value, $score, , $ttl, $force] = array_pad($parameter, 3, 0);
+                $params = [
+                    (string) $key,
+                    is_numeric($score) ? ($score > 0 ? $score : time()) : time(),
+                    (string) (is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE) : $value),
+                    (int) $ttl,
+                    (int) $force
+                ];
+                return (bool) $this->eval($name, $params, 1);
+            case "zGet":
+                [$key, $score] = array_pad($parameter, 2, 0);
+                $params = [
+                    (string) $key,
+                    "-inf",
+                    is_numeric($score) ? ($score > 0 ? $score : time()) : time()
+                ];
+                return $this->eval($name, $params, 1);
+            case "delete":
+                $prefix = $parameter[0] ?? null;
+                if ($prefix === null) {
+                    return $this->client()->flushDB() === true ? 1 : 0;
+                }
+                $count = 0;
+                $items = $this->client()->keys(trim($prefix, ":") . ":*");
+                if (!empty($items)) {
+                    foreach ($items as $item) {
+                        ++$count;
+                        $this->client()->del($item);
+                    }
+                }
+                return $count;
+        }
+        return call_user_func_array([$this->client(), $name], $parameter);
     }
 }
