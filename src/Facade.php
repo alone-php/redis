@@ -164,7 +164,12 @@ class Facade {
     public function getZAdd(string|int $key, int $score = 0, bool $delete = true): mixed {
         $score = $score > 0 ? $score : time();
         if ($delete) {
-            return $this->eval("zAdd", [(string) $key, '-inf', $score], 1);
+            $items = $this->eval("zGet", [(string) $key, '-inf', $score], 1);
+            $item = [];
+            foreach (array_chunk($items, 2) as $pair) {
+                $item[$pair[0]] = $pair[1] ?? 0;
+            }
+            return $item;
         }
         return $this->client()->zrangebyscore((string) $key, '-inf', $score, ['WITHSCORES' => true]);
     }
