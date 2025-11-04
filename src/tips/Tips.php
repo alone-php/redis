@@ -1,6 +1,6 @@
 <?php
 
-namespace AlonePhp\Redis\banking;
+namespace AlonePhp\Redis\tips;
 
 trait Tips {
     public int        $code    = 0;      // 状态码

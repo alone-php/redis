@@ -1,6 +1,9 @@
 <?php
 
-namespace AlonePhp\Redis\bank;
+namespace AlonePhp\Redis\tips\banking;
+
+use AlonePhp\Redis\tips\Tips;
+
 /**
  * 双帐户转帐
  */
@@ -9,9 +12,11 @@ class Transfer {
 
     public float|int $amount    = 0;   // 操作额度
     public string    $outKey    = "";  // 转出key
+    public string    $outField  = "";  // 转出字段
     public float|int $outBefore = 0;   // 转出前额度
     public float|int $outAfter  = 0;   // 转出后额度
     public string    $inKey     = "";  // 转入key
+    public string    $inField   = "";  // 转入字段
     public float|int $inBefore  = 0;   // 转入前额度
     public float|int $inAfter   = 0;   // 转入后额度
 

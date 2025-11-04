@@ -4,8 +4,8 @@ namespace AlonePhp\Redis;
 
 use Redis;
 use Throwable;
-use AlonePhp\Redis\banking\Balance;
-use AlonePhp\Redis\banking\Transfer;
+use AlonePhp\Redis\tips\banking\Balance;
+use AlonePhp\Redis\tips\banking\Transfer;
 
 /**
  * 金融余额操作

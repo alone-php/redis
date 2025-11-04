@@ -1,6 +1,9 @@
 <?php
 
-namespace AlonePhp\Redis\bank;
+namespace AlonePhp\Redis\tips\bank;
+
+use AlonePhp\Redis\tips\Tips;
+
 /**
  * 单帐户余额操作
  */

@@ -4,8 +4,8 @@ namespace AlonePhp\Redis;
 
 use Redis;
 use Throwable;
-use AlonePhp\Redis\bank\Balance;
-use AlonePhp\Redis\bank\Transfer;
+use AlonePhp\Redis\tips\bank\Balance;
+use AlonePhp\Redis\tips\bank\Transfer;
 
 /**
  * 金融余额操作
@@ -47,8 +47,8 @@ class Bank {
     public function balance(string|int $key, float|int $amount, callable $call): Balance {
         $startTime = microtime(true);
         $decimals = $this->config('decimals', 1000000);
-        $timeout = $this->config('timeout', 5);
         $default = $this->config('default', -1);
+        $timeout = $this->config('timeout', 5);
         $wait = $this->config('wait', 5000);
         $ttl = $this->config('ttl', 0);
         try {
@@ -115,11 +115,11 @@ class Bank {
      */
     public function transfer(string|int $outKey, string|int $inKey, float|int $amount, callable $outCall, callable $inCall): Transfer {
         $startTime = microtime(true);
-        $decimals = $this->config('decimals', 1000000);
+        $ttl = $this->config('ttl', 0);
+        $wait = $this->config('wait', 5000);
         $timeout = $this->config('timeout', 5);
         $default = $this->config('default', -1);
-        $wait = $this->config('wait', 5000);
-        $ttl = $this->config('ttl', 0);
+        $decimals = $this->config('decimals', 1000000);
         try {
             $amount = abs($amount);
             $balance = $amount * $decimals;
@@ -392,7 +392,6 @@ if ttl > 0 then
 end
 local inBalance = redis.call("INCRBY", inKey, amount)
 if inBalance == false then
-    -- 回滚失败前余额已发生变化，应恢复
     local outRoll = redis.call("INCRBY", outKey, amount)
     if outRoll == false then
         return { 205, outBefore, inBefore, tonumber(outBalance), inBefore }
@@ -404,6 +403,5 @@ if ttl > 0 then
 end
 return { 200, outBefore, inBefore, tonumber(outBalance), tonumber(inBalance) }
 LUA;
-
     }
 }
