@@ -2,8 +2,8 @@
 
 namespace AlonePhp\Redis;
 
+use Redis;
 use Throwable;
-use AlonePhp\Redis\frame\Lua;
 use AlonePhp\Redis\banking\Balance;
 use AlonePhp\Redis\banking\Transfer;
 
@@ -11,9 +11,13 @@ use AlonePhp\Redis\banking\Transfer;
  * 金融余额操作
  */
 class Banking {
-    use Lua;
-
-    // 程序配置
+    // Redis
+    protected mixed $redis = null;
+    // LUA脚本信息
+    protected array $sha = [];
+    // LUA脚本信息
+    protected static array $lua = [];
+    // 配置
     protected array $config = [
         // redis默认值
         "default"  => -1,
@@ -26,12 +30,10 @@ class Banking {
     ];
 
     /**
-     * @param mixed $redis  array使用自带的redis,也可以使用redis对像
-     * @param array $config 程序配置
+     * @param mixed $redis array使用自带的redis,也可以使用redis对像
      */
-    public function __construct(mixed $redis = [], array $config = []) {
+    public function __construct(mixed $redis = []) {
         $this->redis = is_array($redis) ? (new Client($redis)) : $redis;
-        $this->config = array_merge($this->config, $config);
     }
 
     /**
@@ -52,7 +54,7 @@ class Banking {
             $balance = $amount * $decimals;
             while (microtime(true) - $startTime < $timeout) {
                 $param = [(string) $key, (string) $field, (int) $balance, $default];
-                $result = $this->execLua('balance', $param, 1);
+                $result = $this->eval('balance', $param, 1);
                 [$code, $before, $after] = array_pad($result, 3, 0);
                 switch ($code) {
                     case 200:
@@ -124,7 +126,7 @@ class Banking {
             $balance = $amount * $decimals;
             while (microtime(true) - $startTime < ($timeout)) {
                 $param = [(string) $outKey, (string) $inKey, (string) $outField, (string) $inField, (int) $balance, $default];
-                $result = $this->execLua('transfer', $param, 2);
+                $result = $this->eval('transfer', $param, 2);
                 [$code, $outBefore, $inBefore, $outAfter, $inAfter] = array_pad($result, 5, 0);
                 switch ($code) {
                     case 200:
@@ -235,7 +237,7 @@ class Banking {
      * @param int $default
      * @return $this
      */
-    public function default(int $default): static {
+    public function default(int $default = -1): static {
         $this->config["default"] = -abs($default);
         return $this;
     }
@@ -245,7 +247,7 @@ class Banking {
      * @param int $wait
      * @return $this
      */
-    public function wait(int $wait): static {
+    public function wait(int $wait = 5000): static {
         $this->config["wait"] = abs($wait);
         return $this;
     }
@@ -255,19 +257,45 @@ class Banking {
      * @param int $timeout
      * @return $this
      */
-    public function timeout(int $timeout): static {
+    public function timeout(int $timeout = 5): static {
         $this->config["timeout"] = abs($timeout);
         return $this;
     }
 
     /**
-     * 精度倍数
+     * 设置精度倍数
      * @param int $decimals
      * @return $this
      */
-    public function decimals(int $decimals): static {
+    public function decimals(int $decimals = 1000000): static {
         $this->config["decimals"] = abs($decimals);
         return $this;
+    }
+
+    /**
+     * 获取原生redis对像
+     * @return Redis
+     */
+    public function client(): Redis {
+        return ($this->redis instanceof Redis) ? $this->redis : $this->redis->client();
+    }
+
+    /**
+     * 执行脚本
+     * @param string $type   类型 或者 文件名
+     * @param array  $params 参数
+     * @param int    $keyCount
+     * @return mixed
+     */
+    protected function eval(string $type, array $params, int $keyCount): mixed {
+        static::$lua[$type] = !empty($lua = (static::$lua[$type] ?? null)) ? $lua : @file_get_contents(__DIR__ . "/banking/script/$type.lua");
+        $this->sha[$type] = !empty($sha = ($this->sha[$type] ?? null)) ? $sha : $this->client()->script('load', static::$lua[$type]);
+        try {
+            return $this->client()->evalSha($this->sha[$type], $params, $keyCount);
+        } catch (Throwable $e) {
+            unset($this->sha[$type]);
+            return $this->client()->eval(static::$lua[$type], $params, $keyCount);
+        }
     }
 
     /**
@@ -276,7 +304,7 @@ class Banking {
      * @param mixed           $default
      * @return mixed
      */
-    public function config(string|int|null $key = null, mixed $default = null): mixed {
+    protected function config(string|int|null $key = null, mixed $default = null): mixed {
         return isset($key) ? ($this->config[$key] ?? $default) : $this->config;
     }
 }

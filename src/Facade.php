@@ -2,6 +2,7 @@
 
 namespace AlonePhp\Redis;
 
+use Redis;
 use AlonePhp\Redis\frame\Lua;
 
 /**
@@ -15,6 +16,14 @@ class Facade {
      */
     public function __construct(mixed $redis = []) {
         $this->redis = is_array($redis) ? (new Client($redis)) : $redis;
+    }
+
+    /**
+     * 获取原生redis对像
+     * @return Redis
+     */
+    public function client(): Redis {
+        return ($this->redis instanceof Redis) ? $this->redis : $this->redis->client();
     }
 
     /**

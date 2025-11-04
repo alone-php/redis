@@ -58,8 +58,8 @@ if inBalance == false then
     if outRoll == false then
         return { 205, outBefore, inBefore, tonumber(outBalance), inBefore }
     end
-    --失败
+    --回滚成功
     return { 206, outBefore, inBefore, tonumber(outRoll), inBefore }
 end
-
+-- 返回
 return { 200, outBefore, inBefore, tonumber(outBalance), tonumber(inBalance) }
