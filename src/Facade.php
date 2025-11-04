@@ -8,10 +8,6 @@ use Throwable;
 /**
  * Redis客户端
  * @mixin Redis
- * @method bool hSet(string|int $key, string|int $field, array|string|int $value, int $ttl = 0, bool $force = false)
- * @method bool zAdd(string|int $key, array|string|int $value, int $score = 0, int $ttl = 0, bool $force = false)
- * @method mixed zGet(string|int $key, int $score = 0)
- * @method int delete(string|int|null $prefix)
  */
 class Facade {
     // LUA脚本信息

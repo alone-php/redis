@@ -9,6 +9,7 @@ use AlonePhp\Redis\tips\bank\Transfer;
 
 /**
  * 金融余额操作
+ * @mixin Redis
  */
 class Bank {
     // Redis
@@ -403,5 +404,14 @@ if ttl > 0 then
 end
 return { 200, outBefore, inBefore, tonumber(outBalance), tonumber(inBalance) }
 LUA;
+    }
+
+    /**
+     * @param string $name
+     * @param array  $parameter
+     * @return mixed
+     */
+    public function __call(string $name, array $parameter): mixed {
+        return call_user_func_array([$this->client(), $name], $parameter);
     }
 }

@@ -7,6 +7,7 @@ use Throwable;
 
 /**
  * Redis客户端
+ * @mixin Redis
  */
 class Client {
     // 原生redis
@@ -156,5 +157,14 @@ class Client {
      */
     public function config(string|int|null $key = null, mixed $default = null): mixed {
         return isset($key) ? ($this->config[$key] ?? $default) : $this->config;
+    }
+
+    /**
+     * @param string $name
+     * @param array  $parameter
+     * @return mixed
+     */
+    public function __call(string $name, array $parameter): mixed {
+        return call_user_func_array([$this->client(), $name], $parameter);
     }
 }
