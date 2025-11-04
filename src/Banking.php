@@ -33,7 +33,7 @@ class Banking {
      */
     public function __construct(mixed $redis = []) {
         $this->redis = is_array($redis) ? (new Client($redis)) : $redis;
-        $this->select($this->config('database', 0));
+        $this->client()->select($this->config('database', 0));
     }
 
     /**
@@ -56,7 +56,7 @@ class Banking {
             $sha = $this->client()->script('load', $lua);
             while (microtime(true) - $startTime < $timeout) {
                 $param = [(string) $key, (string) $field, (int) $balance, $default];
-                $result = $this->eval($lua, $sha, $param, 1);
+                $result = $this->loadLua($lua, $sha, $param, 1);
                 [$code, $before, $after] = array_pad($result, 3, 0);
                 switch ($code) {
                     case 200:
@@ -72,7 +72,7 @@ class Banking {
                             'execute' => microtime(true) - $startTime
                         ]);
                     case 1:
-                        $this->set($key, $field, $call());
+                        $this->setAmount($key, $field, $call());
                         continue 2;
                     case 4:
                         usleep($wait);
@@ -130,7 +130,7 @@ class Banking {
             $sha = $this->client()->script('load', $lua);
             while (microtime(true) - $startTime < ($timeout)) {
                 $param = [(string) $outKey, (string) $inKey, (string) $outField, (string) $inField, (int) $balance, $default];
-                $result = $this->eval($lua, $sha, $param, 2);
+                $result = $this->loadLua($lua, $sha, $param, 2);
                 [$code, $outBefore, $inBefore, $outAfter, $inAfter] = array_pad($result, 5, 0);
                 switch ($code) {
                     case 200:
@@ -152,10 +152,10 @@ class Banking {
                             'execute'   => (microtime(true) - $startTime),
                         ]);
                     case 1:
-                        $this->set($outKey, $outField, $outCall());
+                        $this->setAmount($outKey, $outField, $outCall());
                         continue 2;
                     case 2:
-                        $this->set($inKey, $inField, $inCall());
+                        $this->setAmount($inKey, $inField, $inCall());
                         continue 2;
                     case 4:
                         usleep($wait);
@@ -200,7 +200,7 @@ class Banking {
      * @param float|int  $amount 金额（正常小数值）
      * @return bool
      */
-    public function set(string|int $key, string|int $field, float|int $amount): bool {
+    public function setAmount(string|int $key, string|int $field, float|int $amount): bool {
         return (bool) $this->client()->hSet($key, $field, (int) ($amount * $this->config('decimals', 1000000)));
     }
 
@@ -210,7 +210,7 @@ class Banking {
      * @param array      $fields 为空获取 key 的全部字段
      * @return array 二维数组 ['field' => 金额]
      */
-    public function get(string|int $key, array $fields = []): array {
+    public function getAmount(string|int $key, array $fields = []): array {
         $item = [];
         $items = !empty($fields) ? $this->client()->hMGet($key, $fields) : $this->client()->hGetAll($key);
         foreach ($items as $k => $v) {
@@ -225,7 +225,7 @@ class Banking {
      * @param array|string|null $field null删除整个key，string只删除单个field, array批量删除
      * @return int 返回删除数量（字段数或 1 或 0）
      */
-    public function del(string|int $key, array|string|null $field): int {
+    public function delAmount(string|int $key, array|string|null $field): int {
         if (is_array($field)) {
             $i = 0;
             foreach ($field as $val) {
@@ -237,11 +237,19 @@ class Banking {
     }
 
     /**
+     * 获取原生redis对像
+     * @return Redis
+     */
+    public function client(): Redis {
+        return ($this->redis instanceof Redis) ? $this->redis : $this->redis->client();
+    }
+
+    /**
      * 设置默认值
      * @param int $default
      * @return $this
      */
-    public function default(int $default = -1): static {
+    public function setDefault(int $default = -1): static {
         $this->config["default"] = -abs($default);
         return $this;
     }
@@ -251,7 +259,7 @@ class Banking {
      * @param int $wait
      * @return $this
      */
-    public function wait(int $wait = 5000): static {
+    public function setWait(int $wait = 5000): static {
         $this->config["wait"] = abs($wait);
         return $this;
     }
@@ -261,7 +269,7 @@ class Banking {
      * @param int $timeout
      * @return $this
      */
-    public function timeout(int $timeout = 5): static {
+    public function setTimeout(int $timeout = 5): static {
         $this->config["timeout"] = abs($timeout);
         return $this;
     }
@@ -271,27 +279,8 @@ class Banking {
      * @param int $decimals
      * @return $this
      */
-    public function decimals(int $decimals = 1000000): static {
+    public function setDecimals(int $decimals = 1000000): static {
         $this->config["decimals"] = abs($decimals);
-        return $this;
-    }
-
-    /**
-     * 获取原生redis对像
-     * @return Redis
-     */
-    public function client(): Redis {
-        return ($this->redis instanceof Redis) ? $this->redis : $this->redis->client();
-    }
-
-    /**
-     * 选择数据库
-     * @param int|null $db
-     * @return $this
-     */
-    public function select(int|null $db = null): static {
-        $this->config["database"] = $db ?? $this->config('database', 0);
-        $this->client()->select($this->config('database', 0));
         return $this;
     }
 
@@ -303,7 +292,7 @@ class Banking {
      * @param int   $keyCount
      * @return mixed
      */
-    public function eval(mixed $lua, mixed $sha, array $params, int $keyCount): mixed {
+    protected function loadLua(mixed $lua, mixed $sha, array $params, int $keyCount): mixed {
         try {
             return $this->client()->evalSha($sha, $params, $keyCount);
         } catch (Throwable $e) {
@@ -317,7 +306,7 @@ class Banking {
      * @param mixed           $default
      * @return mixed
      */
-    public function config(string|int|null $key = null, mixed $default = null): mixed {
+    protected function config(string|int|null $key = null, mixed $default = null): mixed {
         return isset($key) ? ($this->config[$key] ?? $default) : $this->config;
     }
 

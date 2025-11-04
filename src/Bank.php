@@ -35,7 +35,7 @@ class Bank {
      */
     public function __construct(mixed $redis = []) {
         $this->redis = is_array($redis) ? (new Client($redis)) : $redis;
-        $this->select($this->config('database', 0));
+        $this->client()->select($this->config('database', 0));
     }
 
     /**
@@ -58,7 +58,7 @@ class Bank {
             $sha = $this->client()->script('load', $lua);
             while (microtime(true) - $startTime < $timeout) {
                 $param = [(string) $key, (int) $balance, $default, $ttl];
-                $result = $this->eval($lua, $sha, $param, 1);
+                $result = $this->loadLua($lua, $sha, $param, 1);
                 [$code, $before, $after] = array_pad($result, 3, 0);
                 switch ($code) {
                     case 200:
@@ -73,7 +73,7 @@ class Bank {
                             'execute' => microtime(true) - $startTime
                         ]);
                     case 1:
-                        $this->set($key, $call());
+                        $this->setAmount($key, $call());
                         continue 2;
                     case 4:
                         usleep($wait);
@@ -128,7 +128,7 @@ class Bank {
             $sha = $this->client()->script('load', $lua);
             while (microtime(true) - $startTime < ($timeout)) {
                 $param = [(string) $outKey, (string) $inKey, (int) $balance, $default, $ttl];
-                $result = $this->eval($lua, $sha, $param, 2);
+                $result = $this->loadLua($lua, $sha, $param, 2);
                 [$code, $outBefore, $inBefore, $outAfter, $inAfter] = array_pad($result, 5, 0);
                 switch ($code) {
                     case 200:
@@ -148,10 +148,10 @@ class Bank {
                             'execute'   => (microtime(true) - $startTime),
                         ]);
                     case 1:
-                        $this->set($outKey, $outCall());
+                        $this->setAmount($outKey, $outCall());
                         continue 2;
                     case 2:
-                        $this->set($inKey, $inCall());
+                        $this->setAmount($inKey, $inCall());
                         continue 2;
                     case 4:
                         usleep($wait);
@@ -191,7 +191,7 @@ class Bank {
      * @param float|int  $amount 金额（正常小数值）
      * @return bool
      */
-    public function set(string|int $key, float|int $amount): bool {
+    public function setAmount(string|int $key, float|int $amount): bool {
         return (bool) $this->client()->set($key, (int) ($amount * $this->config('decimals', 1000000)));
     }
 
@@ -200,7 +200,7 @@ class Bank {
      * @param array|string|int $keys 单个key 或 多个 key
      * @return array ['key' => 金额]
      */
-    public function get(array|string|int $keys): array {
+    public function getAmount(array|string|int $keys): array {
         $result = [];
         $keys = is_array($keys) ? $keys : [$keys];
         $values = $this->client()->mGet($keys);
@@ -215,59 +215,9 @@ class Bank {
      * @param string|int|array $key
      * @return int 返回删除数量
      */
-    public function del(string|int|array $key): int {
+    public function delAmount(string|int|array $key): int {
         $keys = is_array($key) ? $key : [$key];
         return (int) $this->client()->del(...$keys);
-    }
-
-    /**
-     * 设置有效时间
-     * @param int $ttl
-     * @return $this
-     */
-    public function ttl(int $ttl = 86400): static {
-        $this->config["ttl"] = abs($ttl);
-        return $this;
-    }
-
-    /**
-     * 设置默认值
-     * @param int $default
-     * @return $this
-     */
-    public function default(int $default = -1): static {
-        $this->config["default"] = -abs($default);
-        return $this;
-    }
-
-    /**
-     * 每次等待时间(微秒)
-     * @param int $wait
-     * @return $this
-     */
-    public function wait(int $wait = 5000): static {
-        $this->config["wait"] = abs($wait);
-        return $this;
-    }
-
-    /**
-     * 超时时间(秒)
-     * @param int $timeout
-     * @return $this
-     */
-    public function timeout(int $timeout = 5): static {
-        $this->config["timeout"] = abs($timeout);
-        return $this;
-    }
-
-    /**
-     * 设置精度倍数
-     * @param int $decimals
-     * @return $this
-     */
-    public function decimals(int $decimals = 1000000): static {
-        $this->config["decimals"] = abs($decimals);
-        return $this;
     }
 
     /**
@@ -279,13 +229,52 @@ class Bank {
     }
 
     /**
-     * 选择数据库
-     * @param int|null $db
+     * 设置有效时间
+     * @param int $ttl
      * @return $this
      */
-    public function select(int|null $db = null): static {
-        $this->config["database"] = $db ?? $this->config('database', 0);
-        $this->client()->select($this->config('database', 0));
+    public function setTtl(int $ttl = 86400): static {
+        $this->config["ttl"] = abs($ttl);
+        return $this;
+    }
+
+    /**
+     * 设置默认值
+     * @param int $default
+     * @return $this
+     */
+    public function setDefault(int $default = -1): static {
+        $this->config["default"] = -abs($default);
+        return $this;
+    }
+
+    /**
+     * 每次等待时间(微秒)
+     * @param int $wait
+     * @return $this
+     */
+    public function setWait(int $wait = 5000): static {
+        $this->config["wait"] = abs($wait);
+        return $this;
+    }
+
+    /**
+     * 超时时间(秒)
+     * @param int $timeout
+     * @return $this
+     */
+    public function setTimeout(int $timeout = 5): static {
+        $this->config["timeout"] = abs($timeout);
+        return $this;
+    }
+
+    /**
+     * 设置精度倍数
+     * @param int $decimals
+     * @return $this
+     */
+    public function setDecimals(int $decimals = 1000000): static {
+        $this->config["decimals"] = abs($decimals);
         return $this;
     }
 
@@ -297,7 +286,7 @@ class Bank {
      * @param int   $keyCount
      * @return mixed
      */
-    public function eval(mixed $lua, mixed $sha, array $params, int $keyCount): mixed {
+    protected function loadLua(mixed $lua, mixed $sha, array $params, int $keyCount): mixed {
         try {
             return $this->client()->evalSha($sha, $params, $keyCount);
         } catch (Throwable $e) {
@@ -311,7 +300,7 @@ class Bank {
      * @param mixed           $default
      * @return mixed
      */
-    public function config(string|int|null $key = null, mixed $default = null): mixed {
+    protected function config(string|int|null $key = null, mixed $default = null): mixed {
         return isset($key) ? ($this->config[$key] ?? $default) : $this->config;
     }
 

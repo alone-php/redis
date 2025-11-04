@@ -72,16 +72,6 @@ class Client {
     }
 
     /**
-     * 选择数据库
-     * @param int|null $db
-     * @return $this
-     */
-    public function select(int|null $db = 0): static {
-        $this->client()->select($db);
-        return $this;
-    }
-
-    /**
      * 连接redis
      * @return Redis|null
      */

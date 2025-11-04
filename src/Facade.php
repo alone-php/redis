@@ -67,16 +67,6 @@ class Facade {
     }
 
     /**
-     * 选择数据库
-     * @param int $db
-     * @return $this
-     */
-    public function select(int $db = 0): static {
-        $this->client()->select($db);
-        return $this;
-    }
-
-    /**
      * @param string $name
      * @param array  $parameter
      * @return mixed
