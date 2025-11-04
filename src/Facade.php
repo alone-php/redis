@@ -49,6 +49,157 @@ class Facade {
     }
 
     /**
+     * @param string|int $key
+     * @param mixed      $value
+     * @param mixed      $ttlOrOptions int时设置有效时间
+     * @param bool       $force        是否每次设置有效时间
+     * @return bool
+     */
+    public function set(string|int $key, mixed $value, mixed $ttlOrOptions = [], bool $force = false): bool {
+        $data = (string) (is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE) : $value);
+        if (is_numeric($ttlOrOptions) && $ttlOrOptions > 0) {
+            $params = [(string) $key, $data, $ttlOrOptions, (int) $force];
+            return (bool) $this->eval("set", $params, 1);
+        }
+        return (bool) $this->client()->set($key, $data, $ttlOrOptions);
+    }
+
+    /**
+     * 设置 左侧队列
+     * 使用rpop获取
+     * 数量使用 lLen
+     * @param string|int $key
+     * @param mixed      $value
+     * @param int        $ttl
+     * @param bool       $force
+     * @return bool
+     */
+    public function setLPush(string|int $key, mixed $value, int $ttl = 0, bool $force = false): bool {
+        $data = (string) (is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE) : $value);
+        if ($ttl > 0) {
+            $params = [(string) $key, $data, $ttl, (int) $force];
+            return (bool) $this->eval("lPush", $params, 1);
+        }
+        return (bool) $this->client()->lpush($key, $data);
+    }
+
+    /**
+     * 设置 右侧队列
+     * 使用lpop获取
+     * 数量使用 lLen
+     * @param string|int $key
+     * @param mixed      $value
+     * @param int        $ttl
+     * @param bool       $force
+     * @return bool
+     */
+    public function setRPush(string|int $key, mixed $value, int $ttl = 0, bool $force = false): bool {
+        $data = (string) (is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE) : $value);
+        if ($ttl > 0) {
+            $params = [(string) $key, $data, $ttl, (int) $force];
+            return (bool) $this->eval("rPush", $params, 1);
+        }
+        return (bool) $this->client()->rPush($key, $data);
+    }
+
+    /**
+     * @param string|int       $key
+     * @param string|int       $field 字段
+     * @param array|string|int $value 内容
+     * @param int              $ttl   有效时间
+     * @param bool             $force 存在时是否强制设置时间
+     * @return bool
+     */
+    public function setHSet(string|int $key, string|int $field, array|string|int $value, int $ttl = 0, bool $force = false): bool {
+        $data = (string) (is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE) : $value);
+        if ($ttl > 0) {
+            $params = [(string) $key, (string) $field, $data, $ttl, (int) $force];
+            return (bool) $this->eval("hSet", $params, 1);
+        }
+        return (bool) $this->client()->hSet((string) $key, (string) $field, $data);
+    }
+
+    /**
+     * 获取使用 sMembers
+     * 判断使用 sIsMember
+     * @param string|int       $key
+     * @param array|string|int $value
+     * @param int              $ttl
+     * @param bool             $force
+     * @return bool
+     */
+    public function setSAdd(string|int $key, array|string|int $value, int $ttl = 0, bool $force = false): bool {
+        $data = (string) (is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE) : $value);
+        if ($ttl > 0) {
+            $params = [(string) $key, $data, $ttl, (int) $force];
+            return (bool) $this->eval("sAdd", $params, 1);
+        }
+        return (bool) $this->client()->sAdd((string) $key, $data);
+    }
+
+    /**
+     * @param string|int       $key
+     * @param array|string|int $value
+     * @param int              $ttl
+     * @param int              $score
+     * @param bool             $force
+     * @return bool
+     */
+    public function setZAdd(string|int $key, array|string|int $value, int $score = 0, int $ttl = 0, bool $force = false): bool {
+        $data = (string) (is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE) : $value);
+        $score = $score > 0 ? $score : time();
+        if ($ttl > 0) {
+            $params = [(string) $key, $score, $data, $ttl, (int) $force];
+            return (bool) $this->eval("zAdd", $params, 1);
+        }
+        return (bool) $this->client()->zAdd((string) $key, $score, $data);
+    }
+
+    /**
+     * @param string|int $key
+     * @param int        $score
+     * @param bool       $delete 是否删除
+     * @return mixed
+     */
+    public function getZAdd(string|int $key, int $score = 0, bool $delete = true): mixed {
+        $score = $score > 0 ? $score : time();
+        if ($delete) {
+            return $this->eval("zAdd", [(string) $key, '-inf', $score], 1);
+        }
+        return $this->client()->zrangebyscore((string) $key, '-inf', $score, ['WITHSCORES' => true]);
+    }
+
+    /**
+     * @param string|int $key
+     * @param int        $index 获取第几个,从1起
+     * @return array|null
+     */
+    public function getZAddIndex(string|int $key, int $index): ?array {
+        $items = $this->client()->zRange($key, $index - 1, $index - 1, true);
+        return (is_array($items) && !empty($item = key($items))) ? ['key' => $item, 'value' => $items[$item]] : null;
+    }
+
+    /**
+     * 删除全部指定前缀:key
+     * @param string|int|null $prefix key前缀, null清空全部redis
+     * @return int
+     */
+    public function delete(string|int|null $prefix): int {
+        if (isset($prefix)) {
+            $count = 0;
+            $items = $this->client()->keys(trim($prefix, ":") . ":*");
+            if (!empty($items)) {
+                foreach ($items as $item) {
+                    ++$count;
+                    $this->client()->del($item);
+                }
+            }
+            return $count;
+        }
+        return $this->client()->flushDB() === true ? 1 : 0;
+    }
+
+    /**
      * 执行脚本
      * @param string $type   类型 或者 文件名
      * @param array  $params 参数
@@ -72,50 +223,6 @@ class Facade {
      * @return mixed
      */
     public function __call(string $name, array $parameter): mixed {
-        switch ($name) {
-            case "hSet":
-                [$key, $field, $value, $ttl, $force] = array_pad($parameter, 5, 0);
-                $params = [
-                    (string) $key,
-                    (string) $field,
-                    (string) (is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE) : $value),
-                    (int) $ttl,
-                    (int) $force
-                ];
-                return (bool) $this->eval($name, $params, 1);
-            case "zAdd":
-                [$key, $value, $score, , $ttl, $force] = array_pad($parameter, 3, 0);
-                $params = [
-                    (string) $key,
-                    is_numeric($score) ? ($score > 0 ? $score : time()) : time(),
-                    (string) (is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE) : $value),
-                    (int) $ttl,
-                    (int) $force
-                ];
-                return (bool) $this->eval($name, $params, 1);
-            case "zGet":
-                [$key, $score] = array_pad($parameter, 2, 0);
-                $params = [
-                    (string) $key,
-                    "-inf",
-                    is_numeric($score) ? ($score > 0 ? $score : time()) : time()
-                ];
-                return $this->eval($name, $params, 1);
-            case "delete":
-                $prefix = $parameter[0] ?? null;
-                if ($prefix === null) {
-                    return $this->client()->flushDB() === true ? 1 : 0;
-                }
-                $count = 0;
-                $items = $this->client()->keys(trim($prefix, ":") . ":*");
-                if (!empty($items)) {
-                    foreach ($items as $item) {
-                        ++$count;
-                        $this->client()->del($item);
-                    }
-                }
-                return $count;
-        }
         return call_user_func_array([$this->client(), $name], $parameter);
     }
 }
