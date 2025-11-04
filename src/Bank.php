@@ -4,13 +4,13 @@ namespace AlonePhp\Redis;
 
 use Redis;
 use Throwable;
-use AlonePhp\Redis\banking\Balance;
-use AlonePhp\Redis\banking\Transfer;
+use AlonePhp\Redis\bank\Balance;
+use AlonePhp\Redis\bank\Transfer;
 
 /**
  * 金融余额操作
  */
-class Banking {
+class Bank {
     // Redis
     protected mixed $redis = null;
     // 配置
@@ -24,7 +24,9 @@ class Banking {
         // 精度倍数
         'decimals' => 1000000,
         // 选择数据库
-        'database' => 0
+        'database' => 0,
+        // key有效时间
+        'ttl'      => 86400
     ];
 
     /**
@@ -38,23 +40,23 @@ class Banking {
     /**
      * 单帐户余额操作
      * @param string|int $key
-     * @param string|int $field  字段
      * @param float|int  $amount 正数增加，负数扣除，0表示查询
      * @param callable   $call   字段不存在时执行(从mysql中获取),高并发不存在时只能执行一次
      * @return Balance
      */
-    public function balance(string|int $key, string|int $field, float|int $amount, callable $call): Balance {
+    public function balance(string|int $key, float|int $amount, callable $call): Balance {
         $startTime = microtime(true);
         $decimals = $this->config('decimals', 1000000);
         $timeout = $this->config('timeout', 5);
         $default = $this->config('default', -1);
         $wait = $this->config('wait', 5000);
+        $ttl = $this->config('ttl', 0);
         try {
             $balance = $amount * $decimals;
             $lua = static::balanceLua();
             $sha = $this->client()->script('load', $lua);
             while (microtime(true) - $startTime < $timeout) {
-                $param = [(string) $key, (string) $field, (int) $balance, $default];
+                $param = [(string) $key, (int) $balance, $default, $ttl];
                 $result = $this->eval($lua, $sha, $param, 1);
                 [$code, $before, $after] = array_pad($result, 3, 0);
                 switch ($code) {
@@ -65,13 +67,12 @@ class Banking {
                             'code'    => $code,
                             'amount'  => $amount,
                             'key'     => $key,
-                            'field'   => $field,
                             'before'  => $before / $decimals,
                             'after'   => $after / $decimals,
                             'execute' => microtime(true) - $startTime
                         ]);
                     case 1:
-                        $this->set($key, $field, $call());
+                        $this->set($key, $call());
                         continue 2;
                     case 4:
                         usleep($wait);
@@ -85,7 +86,6 @@ class Banking {
                 'code'    => 203,
                 'amount'  => $amount,
                 'key'     => $key,
-                'field'   => $field,
                 'execute' => microtime(true) - $startTime
             ]);
         } catch (Throwable $e) {
@@ -93,7 +93,6 @@ class Banking {
                 'code'    => 204,
                 'amount'  => $amount,
                 'key'     => $key,
-                'field'   => $field,
                 'execute' => microtime(true) - $startTime,
                 'error'   => [
                     'code' => $e->getCode(),
@@ -107,28 +106,27 @@ class Banking {
 
     /**
      * 转帐操作 - 双帐户
-     * @param string|int $outKey   转出key
-     * @param string|int $outField 转出字段
-     * @param string|int $inKey    转入key
-     * @param string|int $inField  转入字段
-     * @param float|int  $amount   转帐额度 0表示查询转出和转入
-     * @param callable   $outCall  转出包.字段不存在时执行(从mysql中获取),高并发不存在时只能执行一次
-     * @param callable   $inCall   转入包.字段不存在时执行(从mysql中获取),高并发不存在时只能执行一次
+     * @param string|int $outKey  转出key
+     * @param string|int $inKey   转入key
+     * @param float|int  $amount  转帐额度 0表示查询转出和转入
+     * @param callable   $outCall 转出包.字段不存在时执行(从mysql中获取),高并发不存在时只能执行一次
+     * @param callable   $inCall  转入包.字段不存在时执行(从mysql中获取),高并发不存在时只能执行一次
      * @return Transfer
      */
-    public function transfer(string|int $outKey, string|int $outField, string|int $inKey, string|int $inField, float|int $amount, callable $outCall, callable $inCall): Transfer {
+    public function transfer(string|int $outKey, string|int $inKey, float|int $amount, callable $outCall, callable $inCall): Transfer {
         $startTime = microtime(true);
         $decimals = $this->config('decimals', 1000000);
         $timeout = $this->config('timeout', 5);
         $default = $this->config('default', -1);
         $wait = $this->config('wait', 5000);
+        $ttl = $this->config('ttl', 0);
         try {
             $amount = abs($amount);
             $balance = $amount * $decimals;
             $lua = static::transferLua();
             $sha = $this->client()->script('load', $lua);
             while (microtime(true) - $startTime < ($timeout)) {
-                $param = [(string) $outKey, (string) $inKey, (string) $outField, (string) $inField, (int) $balance, $default];
+                $param = [(string) $outKey, (string) $inKey, (int) $balance, $default, $ttl];
                 $result = $this->eval($lua, $sha, $param, 2);
                 [$code, $outBefore, $inBefore, $outAfter, $inAfter] = array_pad($result, 5, 0);
                 switch ($code) {
@@ -141,20 +139,18 @@ class Banking {
                             'code'      => $code,
                             'amount'    => $amount,
                             'outKey'    => $outKey,
-                            'outField'  => $outField,
                             'outBefore' => $outBefore / $decimals,
                             'outAfter'  => $outAfter / $decimals,
                             'inKey'     => $inKey,
-                            'inField'   => $inField,
                             'inBefore'  => $inBefore / $decimals,
                             'inAfter'   => $inAfter / $decimals,
                             'execute'   => (microtime(true) - $startTime),
                         ]);
                     case 1:
-                        $this->set($outKey, $outField, $outCall());
+                        $this->set($outKey, $outCall());
                         continue 2;
                     case 2:
-                        $this->set($inKey, $inField, $inCall());
+                        $this->set($inKey, $inCall());
                         continue 2;
                     case 4:
                         usleep($wait);
@@ -165,24 +161,20 @@ class Banking {
                 }
             }
             return new Transfer([
-                'code'     => 203,
-                'amount'   => $amount,
-                'outKey'   => $outKey,
-                'outField' => $outField,
-                'inKey'    => $inKey,
-                'inField'  => $inField,
-                'execute'  => (microtime(true) - $startTime),
+                'code'    => 203,
+                'amount'  => $amount,
+                'outKey'  => $outKey,
+                'inKey'   => $inKey,
+                'execute' => (microtime(true) - $startTime),
             ]);
         } catch (Throwable $e) {
             return new Transfer([
-                'code'     => 204,
-                'amount'   => $amount,
-                'outKey'   => $outKey,
-                'outField' => $outField,
-                'inKey'    => $inKey,
-                'inField'  => $inField,
-                'execute'  => (microtime(true) - $startTime),
-                'error'    => [
+                'code'    => 204,
+                'amount'  => $amount,
+                'outKey'  => $outKey,
+                'inKey'   => $inKey,
+                'execute' => (microtime(true) - $startTime),
+                'error'   => [
                     'code' => $e->getCode(),
                     'msg'  => $e->getMessage(),
                     'file' => $e->getFile(),
@@ -195,44 +187,46 @@ class Banking {
     /**
      * 强制设置（慎用）
      * @param string|int $key
-     * @param string|int $field
      * @param float|int  $amount 金额（正常小数值）
      * @return bool
      */
-    public function set(string|int $key, string|int $field, float|int $amount): bool {
-        return (bool) $this->client()->hSet($key, $field, (int) ($amount * $this->config('decimals', 1000000)));
+    public function set(string|int $key, float|int $amount): bool {
+        return (bool) $this->client()->set($key, (int) ($amount * $this->config('decimals', 1000000)));
     }
 
     /**
      * 批量获取余额
-     * @param string|int $key
-     * @param array      $fields 为空获取 key 的全部字段
-     * @return array 二维数组 ['field' => 金额]
+     * @param array|string|int $keys 单个key 或 多个 key
+     * @return array ['key' => 金额]
      */
-    public function get(string|int $key, array $fields = []): array {
-        $item = [];
-        $items = !empty($fields) ? $this->client()->hMGet($key, $fields) : $this->client()->hGetAll($key);
-        foreach ($items as $k => $v) {
-            $item[$k] = ((float) $v) / $this->config['decimals'];
+    public function get(array|string|int $keys): array {
+        $result = [];
+        $keys = is_array($keys) ? $keys : [$keys];
+        $values = $this->client()->mGet($keys);
+        foreach ($keys as $i => $key) {
+            $result[$key] = ((float) ($values[$i])) / $this->config['decimals'];
         }
-        return $item;
+        return $result;
     }
 
     /**
-     * 删除指定 key 或者 field
-     * @param string|int        $key
-     * @param array|string|null $field null删除整个key，string只删除单个field, array批量删除
-     * @return int 返回删除数量（字段数或 1 或 0）
+     * 删除指定 key（支持单 key 或多个 key）
+     * @param string|int|array $key
+     * @return int 返回删除数量
      */
-    public function del(string|int $key, array|string|null $field): int {
-        if (is_array($field)) {
-            $i = 0;
-            foreach ($field as $val) {
-                $i += (int) $this->client()->hDel($key, $val);
-            }
-            return $i;
-        }
-        return (int) ($field === null ? $this->client()->del($key) : $this->client()->hDel($key, $field));
+    public function del(string|int|array $key): int {
+        $keys = is_array($key) ? $key : [$key];
+        return (int) $this->client()->del(...$keys);
+    }
+
+    /**
+     * 设置有效时间
+     * @param int $ttl
+     * @return $this
+     */
+    public function ttl(int $ttl = 86400): static {
+        $this->config["ttl"] = abs($ttl);
+        return $this;
     }
 
     /**
@@ -323,13 +317,13 @@ class Banking {
     public static function balanceLua(): string {
         return <<<LUA
 local key = KEYS[1]
-local field = ARGV[1]
-local amount = tonumber(ARGV[2])
-local initValue = ARGV[3]
-if redis.call("HSETNX", key, field, initValue) == 1 then
+local amount = tonumber(ARGV[1])
+local initValue = ARGV[2]
+local ttl = tonumber(ARGV[3])
+if redis.call("SETNX", key, initValue) == 1 then
     return { 1 }
 end
-local result = redis.call("HGET", key, field)
+local result = redis.call("GET", key)
 if result == initValue then
     return { 4 }
 end
@@ -343,9 +337,12 @@ end
 if amount < 0 and before + amount < 0 then
     return { 202, before, before }
 end
-local balance = redis.call("HINCRBY", key, field, amount)
+local balance = redis.call("INCRBY", key, amount)
 if balance == false then
     return { 201 }
+end
+if ttl > 0 then
+    redis.call("EXPIRE", key, ttl)
 end
 return { 200, before, tonumber(balance) }
 LUA;
@@ -355,24 +352,23 @@ LUA;
         return <<<LUA
 local outKey = KEYS[1]
 local inKey = KEYS[2]
-local outField = ARGV[1]
-local inField = ARGV[2]
-local amount = tonumber(ARGV[3])
-local initValue = ARGV[4]
-if redis.call("HSETNX", outKey, outField, initValue) == 1 then
+local amount = tonumber(ARGV[1])
+local initValue = ARGV[2]
+local ttl = tonumber(ARGV[3])
+if redis.call("SETNX", outKey, initValue) == 1 then
     return { 1 }
 end
-local outResult = redis.call("HGET", outKey, outField)
+local outResult = redis.call("GET", outKey)
 if outResult == initValue then
     return { 4 }
 end
 if outResult == false then
     return { 1 }
 end
-if redis.call("HSETNX", inKey, inField, initValue) == 1 then
+if redis.call("SETNX", inKey, initValue) == 1 then
     return { 2 }
 end
-local inResult = redis.call("HGET", inKey, inField)
+local inResult = redis.call("GET", inKey)
 if inResult == initValue then
     return { 4 }
 end
@@ -387,19 +383,27 @@ end
 if outBefore - amount < 0 then
     return { 202, outBefore, inBefore, outBefore, inBefore }
 end
-local outBalance = redis.call("HINCRBY", outKey, outField, -amount)
+local outBalance = redis.call("INCRBY", outKey, -amount)
 if outBalance == false then
     return { 201, outBefore, inBefore, outBefore, inBefore }
 end
-local inBalance = redis.call("HINCRBY", inKey, inField, amount)
+if ttl > 0 then
+    redis.call("EXPIRE", outKey, ttl)
+end
+local inBalance = redis.call("INCRBY", inKey, amount)
 if inBalance == false then
-    local outRoll = redis.call("HINCRBY", outKey, outField, amount)
+    -- 回滚失败前余额已发生变化，应恢复
+    local outRoll = redis.call("INCRBY", outKey, amount)
     if outRoll == false then
         return { 205, outBefore, inBefore, tonumber(outBalance), inBefore }
     end
     return { 206, outBefore, inBefore, tonumber(outRoll), inBefore }
 end
+if ttl > 0 then
+    redis.call("EXPIRE", inKey, ttl)
+end
 return { 200, outBefore, inBefore, tonumber(outBalance), tonumber(inBalance) }
 LUA;
+
     }
 }
