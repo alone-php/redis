@@ -24,7 +24,9 @@ class Banking {
         // 精度倍数
         'decimals' => 1000000,
         // 选择数据库
-        'database' => 0
+        'database' => 0,
+        // key 模式有效时间
+        'ttl'      => 86400
     ];
 
     /**
@@ -318,6 +320,7 @@ class Banking {
     public function config(string|int|null $key = null, mixed $default = null): mixed {
         return isset($key) ? ($this->config[$key] ?? $default) : $this->config;
     }
+
 
     /**
      * @return string

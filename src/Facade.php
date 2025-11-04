@@ -52,7 +52,7 @@ class Facade {
      * @return mixed
      */
     public function eval(string $type, array $params, int $keyCount): mixed {
-        static::$lua[$type] = !empty($lua = (static::$lua[$type] ?? null)) ? $lua : @file_get_contents(__DIR__ . "/../script/$type.lua");
+        static::$lua[$type] = !empty($lua = (static::$lua[$type] ?? null)) ? $lua : @file_get_contents(__DIR__ . "/../script/facade/$type.lua");
         $this->sha[$type] = !empty($sha = ($this->sha[$type] ?? null)) ? $sha : $this->client()->script('load', static::$lua[$type]);
         try {
             return $this->client()->evalSha($this->sha[$type], $params, $keyCount);
