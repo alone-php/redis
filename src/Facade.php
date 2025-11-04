@@ -58,7 +58,7 @@ class Facade {
     public function set(string|int $key, mixed $value, mixed $ttlOrOptions = [], bool $force = false): bool {
         $data = (string) (is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE) : $value);
         if (is_numeric($ttlOrOptions) && $ttlOrOptions > 0) {
-            $params = [(string) $key, $data, $ttlOrOptions, (int) $force];
+            $params = [(string) $key, $data, (int) $ttlOrOptions, (int) $force];
             return (bool) $this->eval("set", $params, 1);
         }
         return (bool) $this->client()->set($key, $data, $ttlOrOptions);
