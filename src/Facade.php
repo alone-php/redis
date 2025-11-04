@@ -37,6 +37,14 @@ class Facade {
     }
 
     /**
+     * 金融类
+     * @return Bank
+     */
+    public function bank(): Bank {
+        return new Bank($this->redis);
+    }
+
+    /**
      * 原生redis使用
      * @return Redis
      */
