@@ -13,10 +13,6 @@ use AlonePhp\Redis\banking\Transfer;
 class Banking {
     // Redis
     protected mixed $redis = null;
-    // LUA脚本信息
-    protected array $sha = [];
-    // LUA脚本信息
-    protected static array $lua = [];
     // 配置
     protected array $config = [
         // redis默认值
@@ -26,7 +22,9 @@ class Banking {
         // 超时时间(秒)
         'timeout'  => 5,
         // 精度倍数
-        'decimals' => 1000000
+        'decimals' => 1000000,
+        // 选择数据库
+        'database' => 0
     ];
 
     /**
@@ -34,6 +32,7 @@ class Banking {
      */
     public function __construct(mixed $redis = []) {
         $this->redis = is_array($redis) ? (new Client($redis)) : $redis;
+        $this->select($this->config('database', 0));
     }
 
     /**
@@ -52,9 +51,11 @@ class Banking {
         $wait = $this->config('wait', 5000);
         try {
             $balance = $amount * $decimals;
+            $lua = static::balanceLua();
+            $sha = $this->client()->script('load', $lua);
             while (microtime(true) - $startTime < $timeout) {
                 $param = [(string) $key, (string) $field, (int) $balance, $default];
-                $result = $this->eval('balance', $param, 1);
+                $result = $this->eval($lua, $sha, $param, 1);
                 [$code, $before, $after] = array_pad($result, 3, 0);
                 switch ($code) {
                     case 200:
@@ -124,9 +125,11 @@ class Banking {
         try {
             $amount = abs($amount);
             $balance = $amount * $decimals;
+            $lua = static::transferLua();
+            $sha = $this->client()->script('load', $lua);
             while (microtime(true) - $startTime < ($timeout)) {
                 $param = [(string) $outKey, (string) $inKey, (string) $outField, (string) $inField, (int) $balance, $default];
-                $result = $this->eval('transfer', $param, 2);
+                $result = $this->eval($lua, $sha, $param, 2);
                 [$code, $outBefore, $inBefore, $outAfter, $inAfter] = array_pad($result, 5, 0);
                 switch ($code) {
                     case 200:
@@ -281,20 +284,28 @@ class Banking {
     }
 
     /**
+     * 选择数据库
+     * @param int|null $db
+     * @return $this
+     */
+    public function select(int|null $db = null): static {
+        $this->client()->select($db ?? $this->config('database', 0));
+        return $this;
+    }
+
+    /**
      * 执行脚本
-     * @param string $type   类型 或者 文件名
-     * @param array  $params 参数
-     * @param int    $keyCount
+     * @param mixed $lua
+     * @param mixed $sha
+     * @param array $params 参数
+     * @param int   $keyCount
      * @return mixed
      */
-    protected function eval(string $type, array $params, int $keyCount): mixed {
-        static::$lua[$type] = !empty($lua = (static::$lua[$type] ?? null)) ? $lua : @file_get_contents(__DIR__ . "/banking/script/$type.lua");
-        $this->sha[$type] = !empty($sha = ($this->sha[$type] ?? null)) ? $sha : $this->client()->script('load', static::$lua[$type]);
+    public function eval(mixed $lua, mixed $sha, array $params, int $keyCount): mixed {
         try {
-            return $this->client()->evalSha($this->sha[$type], $params, $keyCount);
+            return $this->client()->evalSha($sha, $params, $keyCount);
         } catch (Throwable $e) {
-            unset($this->sha[$type]);
-            return $this->client()->eval(static::$lua[$type], $params, $keyCount);
+            return $this->client()->eval($lua, $params, $keyCount);
         }
     }
 
@@ -304,7 +315,96 @@ class Banking {
      * @param mixed           $default
      * @return mixed
      */
-    protected function config(string|int|null $key = null, mixed $default = null): mixed {
+    public function config(string|int|null $key = null, mixed $default = null): mixed {
         return isset($key) ? ($this->config[$key] ?? $default) : $this->config;
+    }
+
+    /**
+     * @return string
+     */
+    public static function balanceLua(): string {
+        return <<<LUA
+local key = KEYS[1]
+local field = ARGV[1]
+local amount = tonumber(ARGV[2])
+local initValue = ARGV[3]
+if redis.call("HSETNX", key, field, initValue) == 1 then
+    return { 1 }
+end
+local result = redis.call("HGET", key, field)
+if result == initValue then
+    return { 4 }
+end
+if result == false then
+    return { 1 }
+end
+local before = tonumber(result)
+if amount == 0 then
+    return { 200, before, before }
+end
+if amount < 0 and before + amount < 0 then
+    return { 202, before, before }
+end
+local balance = redis.call("HINCRBY", key, field, amount)
+if balance == false then
+    return { 201 }
+end
+return { 200, before, tonumber(balance) }
+LUA;
+    }
+
+    /**
+     * @return string
+     */
+    public static function transferLua(): string {
+        return <<<LUA
+local outKey = KEYS[1]
+local inKey = KEYS[2]
+local outField = ARGV[1]
+local inField = ARGV[2]
+local amount = tonumber(ARGV[3])
+local initValue = ARGV[4]
+if redis.call("HSETNX", outKey, outField, initValue) == 1 then
+    return { 1 }
+end
+local outResult = redis.call("HGET", outKey, outField)
+if outResult == initValue then
+    return { 4 }
+end
+if outResult == false then
+    return { 1 }
+end
+if redis.call("HSETNX", inKey, inField, initValue) == 1 then
+    return { 2 }
+end
+local inResult = redis.call("HGET", inKey, inField)
+if inResult == initValue then
+    return { 4 }
+end
+if inResult == false then
+    return { 2 }
+end
+local outBefore = tonumber(outResult)
+local inBefore = tonumber(inResult)
+if amount == 0 then
+    return { 200, outBefore, inBefore, outBefore, inBefore }
+end
+if outBefore - amount < 0 then
+    return { 202, outBefore, inBefore, outBefore, inBefore }
+end
+local outBalance = redis.call("HINCRBY", outKey, outField, -amount)
+if outBalance == false then
+    return { 201, outBefore, inBefore, outBefore, inBefore }
+end
+local inBalance = redis.call("HINCRBY", inKey, inField, amount)
+if inBalance == false then
+    local outRoll = redis.call("HINCRBY", outKey, outField, amount)
+    if outRoll == false then
+        return { 205, outBefore, inBefore, tonumber(outBalance), inBefore }
+    end
+    return { 206, outBefore, inBefore, tonumber(outRoll), inBefore }
+end
+return { 200, outBefore, inBefore, tonumber(outBalance), tonumber(inBalance) }
+LUA;
     }
 }

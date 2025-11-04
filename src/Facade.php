@@ -3,13 +3,18 @@
 namespace AlonePhp\Redis;
 
 use Redis;
-use AlonePhp\Redis\frame\Lua;
+use Throwable;
 
 /**
  * Redis客户端
  */
 class Facade {
-    use Lua;
+    // LUA脚本信息
+    protected array $sha = [];
+    // Redis
+    protected mixed $redis = null;
+    // LUA脚本信息
+    protected static array $lua = [];
 
     /**
      * @param mixed $redis array使用自带的redis,也可以使用redis对像
@@ -27,15 +32,6 @@ class Facade {
     }
 
     /**
-     * 金融类
-     * @param array $config 设置
-     * @return Banking
-     */
-    public function banking(array $config = []): Banking {
-        return new Banking($this->redis, $config);
-    }
-
-    /**
      * 选择数据库
      * @param int $db
      * @return $this
@@ -43,17 +39,6 @@ class Facade {
     public function select(int $db = 0): static {
         $this->client()->select($db);
         return $this;
-    }
-
-    /**
-     * @param string|int  $type     类型或者文件名
-     * @param array       $params   参数
-     * @param int         $keyCount key数量
-     * @param string|null $lua      自定脚本内容
-     * @return mixed
-     */
-    public function eval(string|int $type, array $params, int $keyCount, string|null $lua = null): mixed {
-        return $this->setLua($type, $lua)->execLua($type, $params, $keyCount);
     }
 
     /**
@@ -74,5 +59,23 @@ class Facade {
             }
         }
         return $count;
+    }
+
+    /**
+     * 执行脚本
+     * @param string $type   类型 或者 文件名
+     * @param array  $params 参数
+     * @param int    $keyCount
+     * @return mixed
+     */
+    public function eval(string $type, array $params, int $keyCount): mixed {
+        static::$lua[$type] = !empty($lua = (static::$lua[$type] ?? null)) ? $lua : @file_get_contents(__DIR__ . "/../script/$type.lua");
+        $this->sha[$type] = !empty($sha = ($this->sha[$type] ?? null)) ? $sha : $this->client()->script('load', static::$lua[$type]);
+        try {
+            return $this->client()->evalSha($this->sha[$type], $params, $keyCount);
+        } catch (Throwable $e) {
+            unset($this->sha[$type]);
+            return $this->client()->eval(static::$lua[$type], $params, $keyCount);
+        }
     }
 }

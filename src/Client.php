@@ -4,14 +4,13 @@ namespace AlonePhp\Redis;
 
 use Redis;
 use Throwable;
-use RedisException;
 
 /**
  * Redis客户端
  */
 class Client {
     // 原生redis
-    public Redis|null $redis = null;
+    protected Redis|null $redis = null;
     // redis配置
     private array $config = [
         // 可选tcp tls ssl
@@ -60,7 +59,7 @@ class Client {
                     if ($this->isConnected()) {
                         break;
                     }
-                } catch (RedisException $e) {
+                } catch (Throwable $e) {
                     if ($i === $retry_hits - 1) {
                         break;
                     }
@@ -69,6 +68,16 @@ class Client {
             }
         }
         return $this->redis;
+    }
+
+    /**
+     * 选择数据库
+     * @param int|null $db
+     * @return $this
+     */
+    public function select(int|null $db = 0): static {
+        $this->client()->select($db);
+        return $this;
     }
 
     /**
