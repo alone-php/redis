@@ -220,9 +220,6 @@ class Banking {
      * @return int 返回删除数量（字段数或 1 或 0）
      */
     public function del(string|int $key, array|string|null $field): int {
-        if ($field === null) {
-            return (int) $this->client()->del($key);
-        }
         if (is_array($field)) {
             $i = 0;
             foreach ($field as $val) {
@@ -230,27 +227,7 @@ class Banking {
             }
             return $i;
         }
-        return (int) $this->client()->hDel($key, $field);
-    }
-
-    /**
-     * 删除全部指定前缀:key
-     * @param string|int|null $keyPrefix key前缀, null清空全部redis
-     * @return int
-     */
-    public function delete(string|int|null $keyPrefix): int {
-        if ($keyPrefix === null) {
-            return $this->client()->flushDB() === true ? 1 : 0;
-        }
-        $count = 0;
-        $items = $this->client()->keys(trim($keyPrefix, ":") . ":*");
-        if (!empty($items)) {
-            foreach ($items as $item) {
-                ++$count;
-                $this->client()->del($item);
-            }
-        }
-        return $count;
+        return (int) ($field === null ? $this->client()->del($key) : $this->client()->hDel($key, $field));
     }
 
     /**
