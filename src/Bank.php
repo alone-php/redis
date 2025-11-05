@@ -269,6 +269,16 @@ class Bank {
     }
 
     /**
+     * 设置数据库
+     * @param int $database
+     * @return $this
+     */
+    public function setDatabase(int $database = 0): static {
+        $this->config["database"] = $database;
+        return $this;
+    }
+
+    /**
      * 设置精度倍数
      * @param int $decimals
      * @return $this
